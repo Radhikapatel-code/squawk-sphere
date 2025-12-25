@@ -1,36 +1,28 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { signOut } from "firebase/auth";
+import { auth } from "../firebase/firebase";
+import { useNavigate } from "react-router-dom";
 
-const Navbar = ({ setIsAuthenticated }) => {
+function Navbar() {
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setIsAuthenticated(false);
-    navigate('/login');
+  const logout = async () => {
+    await signOut(auth);
+    navigate("/");
   };
 
   return (
-    <nav className="bg-gray-800 p-4 shadow-lg">
-      <div className="max-w-4xl mx-auto flex justify-between items-center">
-        <Link to="/" className="text-2xl font-bold text-white">ConnectSphere</Link>
-        <div className="flex items-center space-x-4">
-          {token ? (
-            <>
-              <Link to="/profile/me" className="text-blue-400 hover:text-blue-300">Profile</Link>
-              <button onClick={handleLogout} className="text-blue-400 hover:text-blue-300">Logout</button>
-            </>
-          ) : (
-            <>
-              <Link to="/login" className="text-blue-400 hover:text-blue-300">Login</Link>
-              <Link to="/register" className="text-blue-400 hover:text-blue-300">Register</Link>
-            </>
-          )}
-        </div>
-      </div>
-    </nav>
+    <div className="card">
+      <button className="button primary" onClick={() => navigate("/feed")}>
+        Feed
+      </button>
+      <button className="button primary" onClick={() => navigate("/create")}>
+        Create Post
+      </button>
+      <button className="button danger" onClick={logout}>
+        Logout
+      </button>
+    </div>
   );
-};
+}
 
 export default Navbar;

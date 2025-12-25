@@ -1,71 +1,112 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useState } from "react";
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+} from "firebase/auth";
+import { auth } from "../firebase/firebase";
+import { syncUser } from "../services/api";
+import { useNavigate } from "react-router-dom";
 
-const Login = ({ setIsAuthenticated, setProfileComplete }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+function Login() {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
-      console.log('Login response:', res.data); // Debug
-      localStorage.setItem('token', res.data.token);
-      setIsAuthenticated(true);
-      // Check profile completion
-      const profileRes = await axios.get('http://localhost:5000/api/user/profile/me', {
-        headers: { 'x-auth-token': res.data.token },
+  // 🔥 WAIT FOR TOKEN TO BE READY
+  const waitForAuthReady = () =>
+    new Promise((resolve) => {
+      const unsubscribe = auth.onAuthStateChanged((user) => {
+        if (user) {
+          unsubscribe();
+          resolve(user);
+        }
       });
-      console.log('Profile check after login:', profileRes.data); // Debug
-      setProfileComplete(profileRes.data.profileComplete);
-      navigate(profileRes.data.profileComplete ? '/' : '/profile-setup');
+    });
+
+  const login = async () => {
+    try {
+      setError("");
+
+      await signInWithEmailAndPassword(auth, email, password);
+
+      // 🔥 CRITICAL: wait until Firebase auth is ready
+      await waitForAuthReady();
+
+      await syncUser();
+      navigate("/feed");
     } catch (err) {
-      console.error('Login error:', err.response?.data); // Debug
-      setError(err.response?.data?.message || 'Login failed');
+      console.error(err.message);
+      setError(err.message);
+    }
+  };
+
+  const register = async () => {
+    try {
+      setError("");
+
+      const res = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      await updateProfile(res.user, {
+        displayName: name,
+      });
+
+      // 🔥 WAIT FOR TOKEN
+      await waitForAuthReady();
+
+      await syncUser();
+      navigate("/feed");
+    } catch (err) {
+      console.error(err.message);
+      setError(err.message);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900">
-      <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6 text-white text-center">Login</h2>
-        {error && <p className="text-red-500 mb-4">{error}</p>}
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-gray-300 mb-2" htmlFor="email">Email</label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-500"
-              required
-            />
-          </div>
-          <div className="mb-6">
-            <label className="block text-gray-300 mb-2" htmlFor="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 rounded bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-500"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded transition duration-200"
-          >
-            Login
-          </button>
-        </form>
+    <div className="container">
+      <div className="card">
+        <h2>Login / Register</h2>
+
+        {error && <p style={{ color: "red" }}>{error}</p>}
+
+        <input
+          className="input"
+          placeholder="Full Name (for registration)"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+
+        <input
+          className="input"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <input
+          className="input"
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <button className="button primary" onClick={login}>
+          Login
+        </button>
+        <button className="button primary" onClick={register}>
+          Register
+        </button>
       </div>
     </div>
   );
-};
+}
 
 export default Login;
